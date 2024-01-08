@@ -1,0 +1,6 @@
+# ignore everything
+*
+# allow .gitignore
+!.gitignore
+# allow main.c
+!main.c
