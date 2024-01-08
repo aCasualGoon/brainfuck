@@ -119,5 +119,6 @@ void execute(char *program) {
 
 int main(int argc, char *argv[]) {
     init_tape();
-    execute(argv[1]);
+    for(int i = 1; i < argc; i++)
+        execute(argv[i]);
 }
