@@ -12,11 +12,12 @@ struct node {
 } *current;
 
 // create a new node with the specified left and right nodes
+// returns a pointer to the new node or NULL if malloc fails
 struct node *new_node(struct node *left, struct node *right) {
     struct node *new = malloc(sizeof(struct node));
     if(new == NULL) {
         printf("\nERROR: Failed to allocate tape memory.\n");
-        exit(1);
+        return NULL;
     }
     new->data = 0;
     new->left = left;
@@ -44,26 +45,36 @@ void cleanup() {
 
 // initialize the tapes first node
 void init_tape() {
-    current = new_node(NULL, NULL);
     atexit(cleanup);
+    current = new_node(NULL, NULL);
+    if(current == NULL)
+        exit(1);
 }
 
 // move current pointer one space to the left
 // if the left node does not exist, create it
-// exits the program if malloc fails (probably out of memory)
-void move_left() {
-    if(current->left == NULL)
+// returns 1 on success, 0 on failure
+int move_left() {
+    if(current->left == NULL) {
         current->left = new_node(NULL, current);
+        if(current->left == NULL)
+            return 0;
+    }
     current = current->left;
+    return 1;
 }
 
 // move current pointer one space to the right
 // if the right node does not exist, create it
-// exits the program if malloc fails (probably out of memory)
-void move_right() {
-    if(current->right == NULL)
+// returns 1 on success, 0 on failure
+int move_right() {
+    if(current->right == NULL) {
         current->right = new_node(current, NULL);
+        if(current->right == NULL)
+            return 0;
+    }
     current = current->right;
+    return 1;
 }
 
 // increment the current node by one
@@ -85,11 +96,12 @@ void input() {
 }
 
 // executes a brainfuck program
-void execute(char *program) {
+// returns 1 on success, 0 on failure
+int execute(char *program) {
     while(*program != '\0') {
         switch(*program) {
-            case '>': move_right(); break;
-            case '<': move_left(); break;
+            case '>': if(!move_right()) return 0; break;
+            case '<': if(!move_left())  return 0; break;
             case '+': increment(); break;
             case '-': decrement(); break;
             case '.': output(); break;
@@ -115,10 +127,42 @@ void execute(char *program) {
         }
         program++;
     }
+    return 1;
+}
+
+// if the argument is a file, return the contents of the file
+// otherwise, return the argument
+char* parseArg(char *arg) {
+    FILE *file = fopen(arg, "r");
+    if(file == NULL)
+        return arg;
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    rewind(file);
+    char *program = malloc(size + 1);
+    if(program == NULL) {
+        printf("\nERROR: Failed to allocate memory for program.\n");
+        exit(1);
+    }
+    fread(program, 1, size, file);
+    program[size] = '\0';
+    fclose(file);
+    return program;
 }
 
 int main(int argc, char *argv[]) {
     init_tape();
-    for(int i = 1; i < argc; i++)
-        execute(argv[i]);
+
+    if(argc == 1) {
+        intercative();
+        exit(0);
+    }
+
+    for(int i = 1; i < argc; i++) {
+        char *program = parseArg(argv[i]);
+        if(!execute(program)) {
+            free(program);
+            exit(1);
+        }
+    }
 }
