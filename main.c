@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // the last character written to the console
 char last_output = '\n';
@@ -128,6 +129,37 @@ int execute(char *program) {
         program++;
     }
     return 1;
+}
+
+char* prompt() {
+    if(last_output != '\n')
+        printf("\n");
+    printf("$ ");
+    char *input = malloc(256);
+    if(input == NULL) {
+        printf("\nERROR: Failed to allocate memory for input.\n");
+        exit(1);
+    }
+    fgets(input, 256, stdin);
+    return input;
+}
+
+// function for the interactive brainf shell
+// runs until the user enters "exit"
+void intercative() {
+    char *program;
+    while(1) {
+        program = prompt();
+        if(strcmp(program, "exit\n") == 0) {
+            free(program);
+            break;
+        }
+        if(!execute(program)) {
+            free(program);
+            exit(1);
+        }
+        free(program);
+    }
 }
 
 // if the argument is a file, return the contents of the file
