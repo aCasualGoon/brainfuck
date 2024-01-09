@@ -256,6 +256,10 @@ char* parseArg(char *arg, int *isnew) {
     return program;
 }
 
+// -c or --compile must be the first argument 
+// if either is supplied, the next argument is the output executable
+// all other arguments are treated as input files if they exist or source code otherwise
+// Usage: brainfck [-c|--compile | -h|--help] [output] [input...]
 int main(int argc, char *argv[]) {
     init_tape();
 
@@ -264,9 +268,18 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    int do_compile = 1;
-
-    if(!do_compile) { // execute the program directly
+    if(strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
+        printf("Usage: brainfuck [-h|--help | -c|--compile] [output] [input...]\n");
+        printf("  -h, --help     Display this help message. (must be the first argument, all other arguments will be ignored)\n");
+        printf("  -c, --compile  Switch to compile mode instead of interpret mode. (must be the first argument)\n");
+        printf("  output         The name of the output executable. (only used in compile mode)\n");
+        printf("  input          The source code to be executed. Existing files will be read, otherwise the argument will be treated as source code.\n");
+        printf("If no arguments are supplied, brainfck will run as an interactive shell.\n");
+        exit(0);
+    }
+    
+    // execute the program directly if neither -c nor --compile is supplied as the first argument
+    if(strcmp(argv[1], "-c") != 0 && strcmp(argv[1], "--compile") != 0) {
         for(int i = 1; i < argc; i++) {
             int isnew;
             char *program = parseArg(argv[i],&isnew);
@@ -281,10 +294,16 @@ int main(int argc, char *argv[]) {
 
     // compile the program to C and then compile the C code
 
+    // check for output file
+    if(argc < 3) {
+        printf("\nERROR: No output file specified.\n");
+        exit(1);
+    }
+
     // transpile the program to file "__intermediate_c_2_brainfuck__.c"
     FILE *file = fopen("__intermediate_c_2_brainfuck__.c", "w");
     fputs(COMPILE_CODEBASE,file);
-    for(int i = 1; i < argc; i++) {
+    for(int i = 3; i < argc; i++) {
         int isnew;
         char *program = parseArg(argv[i],&isnew);
         for(int i = 0; i < strlen(program); i++) {
