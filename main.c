@@ -274,7 +274,7 @@ int main(int argc, char *argv[]) {
         printf("  -c, --compile  Switch to compile mode instead of interpret mode. (must be the first argument)\n");
         printf("  output         The name of the output executable. (only used in compile mode)\n");
         printf("  input          The source code to be executed. Existing files will be read, otherwise the argument will be treated as source code.\n");
-        printf("If no arguments are supplied, brainfck will run as an interactive shell.\n");
+        printf("If no arguments are supplied, brainfuck will run as an interactive shell.\n");
         exit(0);
     }
     
@@ -292,7 +292,7 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    // compile the program to C and then compile the C code
+    // transpile the program to C and then compile the C code
 
     // check for output file
     if(argc < 3) {
@@ -322,4 +322,13 @@ int main(int argc, char *argv[]) {
     }
     fprintf(file, "}\n");
     fclose(file);
+
+
+    // compile "__intermediate_c_2_brainfuck__.c" using gcc
+    char command[256];
+    snprintf(command, sizeof(command), "gcc -o %s __intermediate_c_2_brainfuck__.c", argv[2]);
+    system(command);
+
+    // delete "__intermediate_c_2_brainfuck__.c"
+    remove("__intermediate_c_2_brainfuck__.c");
 }
