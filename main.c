@@ -2,6 +2,78 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define COMPILE_CODEBASE \
+"#include <stdlib.h>\n" \
+"int printf(const char *__restrict__ __format, ...);\n" \
+"int getchar(void);\n" \
+"struct node {\n" \
+"    char data;\n" \
+"    struct node *left;\n" \
+"    struct node *right;\n" \
+"} *current;\n" \
+"\n" \
+"char last_output = '\\n';\n" \
+"\n" \
+"static inline struct node *new_node(struct node *left, struct node *right) {\n" \
+"    struct node *new = malloc(sizeof(struct node));\n" \
+"    if(new == ((void *)0)) {\n" \
+"        printf(\"\\nERROR: Failed to allocate tape memory.\\n\");\n" \
+"        exit(1);\n" \
+"    }\n" \
+"    new->data = 0;\n" \
+"    new->left = left;\n" \
+"    new->right = right;\n" \
+"    return new;\n" \
+"}\n" \
+"\n" \
+"static inline void cleanup() {\n" \
+"    while(current->left != ((void *)0))\n" \
+"        current = current->left;\n" \
+"    struct node *temp;\n" \
+"    while(current != ((void *)0)) {\n" \
+"        temp = current;\n" \
+"        current = current->right;\n" \
+"        free(temp);\n" \
+"    }\n" \
+"    if(last_output != '\\n')\n" \
+"        printf(\"\\n\");\n" \
+"}\n" \
+"\n" \
+"static inline void move_left() {\n" \
+"    if(current->left == ((void *)0))\n" \
+"        current->left = new_node(((void *)0), current);\n" \
+"    current = current->left;\n" \
+"}\n" \
+"\n" \
+"static inline void move_right() {\n" \
+"    if(current->right == ((void *)0))\n" \
+"        current->right = new_node(current, ((void *)0));\n" \
+"    current = current->right;\n" \
+"}\n" \
+"\n" \
+"static inline void output() {\n" \
+"    last_output = current->data;\n" \
+"    printf(\"%c\", last_output);\n" \
+"}\n" \
+"\n" \
+"static inline void input() {\n" \
+"    printf(last_output == '\\n' ? \":\" : \"\\n:\");\n" \
+"    current->data = getchar();\n" \
+"    while(getchar() != '\\n');\n" \
+"}\n" \
+"\n" \
+"int main() {\n" \
+"    atexit(cleanup);\n" \
+"    current = new_node(((void *)0), ((void *)0));\n"
+#define COMPILE_MOVL "    move_left();\n"
+#define COMPILE_MOVR "    move_right();\n"
+#define COMPILE_INCR "    current->data++;\n"
+#define COMPILE_DECR "    current->data--;\n"
+#define COMPILE_OUTP "    output();\n"
+#define COMPILE_INPT "    input();\n"
+#define COMPILE_LOOP "    if(current->data != 0) do{\n"
+#define COMPILE_ENDL "    }while(current->data != 0);\n"
+
 // the last character written to the console
 char last_output = '\n';
 
@@ -164,10 +236,12 @@ void intercative() {
 
 // if the argument is a file, return the contents of the file
 // otherwise, return the argument
-char* parseArg(char *arg) {
+char* parseArg(char *arg, int *isnew) {
+    *isnew = 0;
     FILE *file = fopen(arg, "r");
     if(file == NULL)
         return arg;
+    *isnew = 1;
     fseek(file, 0, SEEK_END);
     long size = ftell(file);
     rewind(file);
@@ -185,16 +259,48 @@ char* parseArg(char *arg) {
 int main(int argc, char *argv[]) {
     init_tape();
 
-    if(argc == 1) {
+    if(argc == 1) { // run brainfuck as an interactive shell
         intercative();
         exit(0);
     }
 
-    for(int i = 1; i < argc; i++) {
-        char *program = parseArg(argv[i]);
-        if(!execute(program)) {
-            free(program);
-            exit(1);
+    int do_compile = 1;
+
+    if(!do_compile) { // execute the program directly
+        for(int i = 1; i < argc; i++) {
+            int isnew;
+            char *program = parseArg(argv[i],&isnew);
+            if(!execute(program)) {
+                if(isnew) free(program);
+                exit(1);
+            }
+            if(isnew) free(program);
         }
+        exit(0);
     }
+
+    // compile the program to C and then compile the C code
+
+    // transpile the program to file "__intermediate_c_2_brainfuck__.c"
+    FILE *file = fopen("__intermediate_c_2_brainfuck__.c", "w");
+    fputs(COMPILE_CODEBASE,file);
+    for(int i = 1; i < argc; i++) {
+        int isnew;
+        char *program = parseArg(argv[i],&isnew);
+        for(int i = 0; i < strlen(program); i++) {
+            switch(program[i]) {
+                case '>': fputs(COMPILE_MOVR, file); break;
+                case '<': fputs(COMPILE_MOVL, file); break;
+                case '+': fputs(COMPILE_INCR, file); break;
+                case '-': fputs(COMPILE_DECR, file); break;
+                case '.': fputs(COMPILE_OUTP, file); break;
+                case ',': fputs(COMPILE_INPT, file); break;
+                case '[': fputs(COMPILE_LOOP, file); break;
+                case ']': fputs(COMPILE_ENDL, file); break;
+            }
+        }
+        if(isnew) free(program);
+    }
+    fprintf(file, "}\n");
+    fclose(file);
 }
