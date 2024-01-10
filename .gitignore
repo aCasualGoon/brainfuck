@@ -8,3 +8,5 @@
 !makefile
 # allow README.md
 !README.md
+# allow LICENSE.md
+!LICENSE.md
