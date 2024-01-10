@@ -216,7 +216,7 @@ char* prompt() {
     return input;
 }
 
-// function for the interactive brainf shell
+// function for the interactive brainfuck shell
 // runs until the user enters "exit"
 void intercative() {
     char *program;
@@ -229,6 +229,11 @@ void intercative() {
         if(!execute(program)) {
             free(program);
             exit(1);
+        }
+
+        if(last_output != '\n') {
+            printf("%c",'\n');
+            last_output = '\n';
         }
         free(program);
     }
