@@ -2,5 +2,7 @@
 *
 # allow .gitignore
 !.gitignore
-# allow main.c
-!main.c
+# allow brainfuck.c
+!brainfuck.c
+# allow makefile
+!makefile
