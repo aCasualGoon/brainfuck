@@ -6,5 +6,5 @@
 !brainfuck.c
 # allow makefile
 !makefile
-# allow README
-!README
+# allow README.md
+!README.md
