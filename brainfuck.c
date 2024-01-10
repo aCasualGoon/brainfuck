@@ -79,7 +79,7 @@ char last_output = '\n';
 
 // tape node
 struct node {
-    char data;
+    unsigned char data;
     struct node *left;
     struct node *right;
 } *current;
