@@ -36,6 +36,3 @@ uninstall:
 	fi; \
 	rm -f $(INSTALL_DIR)/$(TARGET); \
 	echo "brainfuck uninstalled from $(INSTALL_DIR)"
-
-clean:
-	@rm -f $(TARGET)
