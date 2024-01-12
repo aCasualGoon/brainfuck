@@ -1,339 +1,367 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#define VERSION "0.2.0"
 
-#define COMPILE_CODEBASE \
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdarg.h>
+
+char lastout = '\n';
+
+void error(const char *msg) {
+    if(lastout != '\n') putchar('\n');
+    printf("Error: %s\n", msg);
+    exit(1);
+}
+void errif(int cond, const char *msg) {
+    if(cond) error(msg);
+}
+void errorf(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+
+    if(lastout != '\n') {
+        putchar('\n');
+    }
+    
+    printf("Error: ");
+    vprintf(format, args);
+    printf("\n");
+
+    va_end(args);
+    exit(1);
+}
+
+// is string a equal to string b?
+#define streq(a, b) (strcmp(a, b) == 0)
+// is string a equal to string b or string c?
+#define streq2(a, b, c) (streq(a, b) || streq(a, c))
+
+/* ------------------ PROGRAM CODE ------------------ */
+
+char *program;
+unsigned long program_size;
+unsigned long program_ptr = 0;
+
+void append2program(char *expression) {
+    FILE *f = fopen(expression, "r");
+
+    int predicted_size = 0;
+    if(f) {
+        fseek(f, 0, SEEK_END);
+        predicted_size = ftell(f);
+        fseek(f, 0, SEEK_SET);
+    } else {
+        predicted_size = strlen(expression);
+    }
+
+    char *buffer = malloc(predicted_size);
+    errif(!buffer, "Failed to allocate memory for program (malloc)");
+    int actual_size = 0;
+    for(int i = 0; i < predicted_size; i++) {
+        char c = f ? fgetc(f) : expression[i];
+        if(c == '+' || c == '-' || c == '<' || c == '>' || c == '[' || c == ']' || c == '.' || c == ',')
+            buffer[actual_size++] = c;
+    }
+    if(f) fclose(f);
+
+    if(actual_size > 0) {
+        program = realloc(program, program_size + actual_size);
+        errif(!program, "Failed to allocate memory for program (realloc)");
+        memcpy(program + program_size, buffer, actual_size);
+        program_size += actual_size;
+    }
+    free(buffer);
+}
+
+/* ------------------ TAPE ------------------ */
+
+typedef struct node {
+    unsigned char value;
+    struct node *left;
+    struct node *right;
+} node;
+
+node* new_node(node *left, node *right) {
+    node *n = malloc(sizeof(node));
+    errif(!n, "Failed to allocate memory for tape");
+    n->value = 0;
+    n->left = left;
+    n->right = right;
+    return n;
+}
+
+node *current;
+
+/* ------------------ COMMANDS ------------------ */
+
+void command_increment() { current->value++; }
+void command_decrement() { current->value--; }
+void command_left() {
+    if(!current->left) 
+        current->left = new_node(NULL, current);
+    current = current->left;
+}
+void command_right() {
+    if(!current->right) 
+        current->right = new_node(current, NULL);
+    current = current->right;
+}
+void command_loop() {
+    if(!current->value) {
+        int depth = 1;
+        while(depth) {
+            program_ptr++;
+            depth += (program[program_ptr] == '[') - (program[program_ptr] == ']');
+        }
+    }
+}
+void command_endloop() {
+    if(current->value) {
+        int depth = 1;
+        while(depth) {
+            program_ptr--;
+            depth += (program[program_ptr] == ']') - (program[program_ptr] == '[');
+        }
+    }
+}
+void command_out() { 
+    lastout = current->value;
+    putchar(lastout);
+}
+void command_in() { 
+    if(lastout != '\n') putchar('\n');
+    putchar(':');
+    current->value = getchar();
+    while(getchar() != '\n');
+}
+
+void exec() {
+    while(program_ptr < program_size) {
+        switch(program[program_ptr]) {
+            case '+': command_increment(); break;
+            case '-': command_decrement(); break;
+            case '<': command_left();      break;
+            case '>': command_right();     break;
+            case '[': command_loop();      break;
+            case ']': command_endloop();   break;
+            case '.': command_out();       break;
+            case ',': command_in();        break;
+        }
+        program_ptr++;
+    }
+}
+
+/* ------------------ INTERACTIVE SHELL ------------------ */
+
+#define SHELLMAXINPUTLENGTH 1024
+void shell() { // we're not filtering for commands here
+    program = malloc(SHELLMAXINPUTLENGTH);
+    errif(!program, "Failed to allocate memory for program");
+    while(1) {
+        // prompt
+        if(lastout != '\n') putchar('\n');
+        printf("$");
+        lastout = '\n';
+
+        // read program from stdin
+        fgets(program, SHELLMAXINPUTLENGTH, stdin);
+
+        // parse special commands
+        if(streq(program, "exit\n")) exit(0);
+
+        // set program size and pointer
+        program_size = strlen(program);
+        program_ptr = 0;
+
+        // execute
+        exec();
+    }
+}
+
+/* ------------------ MAIN ------------------ */
+
+void compile(char *executable_name);
+
+// blank a string (useful for clearing args that are not to be interpreted as code)
+void blank(char *str) {
+    for(int i = 0; i < strlen(str); i++)
+        str[i] = '\0';
+}
+
+void cleanup() {
+    if(program) free(program);
+    
+    while(current->left)
+        current = current->left;
+    while(current->right) {
+        node *tmp = current;
+        current = current->right;
+        free(tmp);
+    }
+    free(current);
+
+    if(lastout != '\n') putchar('\n');
+}
+
+#define ARGFLAG_COMPILE 0b00000001
+
+int isvalidfilename(char *filename) {
+    if(strlen(filename) == 0) return 0;
+    for(int i = 0; i < strlen(filename); i++)
+        if(filename[i] == '/' || filename[i] == '\\') return 0;
+    return 1;
+}
+
+int main(int argc, char *argv[]) {
+    atexit(cleanup);
+    current = new_node(NULL, NULL);
+
+    if(argc == 1) {
+        shell();
+        return 0;
+    }
+
+    // parse args
+    int compile_exeidx = -1;
+    for(int i = 1; i < argc; i++) {
+        char *arg = argv[i];
+
+        if(streq(arg, "--version")) {
+            printf("version %s\n", VERSION);
+            blank(arg);
+        }
+
+        if(streq2(arg, "-c", "--compile")) {
+            compile_exeidx = i + 1;
+            if(compile_exeidx >= argc)
+                error("Compilation requires an executable name");
+            if(!isvalidfilename(argv[compile_exeidx]))
+                errorf("Invalid executable name: \"%s\"", argv[compile_exeidx]);
+            blank(arg);
+        }
+    }
+
+    for(int i = 1; i < argc; i++)
+        if(i != compile_exeidx)
+            append2program(argv[i]);
+
+    if(compile_exeidx != -1)
+        compile(argv[compile_exeidx]);
+    else
+        exec();
+}
+
+/* ------------------ COMPILER ------------------ */
+
+#define COMPILE_BASE \
 "#include <stdlib.h>\n" \
 "int printf(const char *__restrict__ __format, ...);\n" \
 "int getchar(void);\n" \
+"int putchar(int);\n" \
+"\n" \
+"char lastout = '\\n';\n" \
+"\n" \
 "struct node {\n" \
-"    char data;\n" \
+"    unsigned char value;\n" \
 "    struct node *left;\n" \
 "    struct node *right;\n" \
 "} *current;\n" \
 "\n" \
-"char last_output = '\\n';\n" \
-"\n" \
-"static inline struct node *new_node(struct node *left, struct node *right) {\n" \
-"    struct node *new = malloc(sizeof(struct node));\n" \
-"    if(new == ((void *)0)) {\n" \
-"        printf(\"\\nERROR: Failed to allocate tape memory.\\n\");\n" \
+"struct node* new_node(struct node *left, struct node *right) {\n" \
+"    struct node *n = malloc(sizeof(struct node));\n" \
+"    if(!n) {\n" \
+"        if(lastout != '\\n') putchar('\\n');\n" \
+"        printf(\"Error: Failed to allocate memory for tape\\n\");\n" \
 "        exit(1);\n" \
 "    }\n" \
-"    new->data = 0;\n" \
-"    new->left = left;\n" \
-"    new->right = right;\n" \
-"    return new;\n" \
+"    n->value = 0;\n" \
+"    n->left = left;\n" \
+"    n->right = right;\n" \
+"    return n;\n" \
 "}\n" \
 "\n" \
-"static inline void cleanup() {\n" \
-"    while(current->left != ((void *)0))\n" \
-"        current = current->left;\n" \
-"    struct node *temp;\n" \
-"    while(current != ((void *)0)) {\n" \
-"        temp = current;\n" \
-"        current = current->right;\n" \
-"        free(temp);\n" \
-"    }\n" \
-"    if(last_output != '\\n')\n" \
-"        printf(\"\\n\");\n" \
-"}\n" \
-"\n" \
-"static inline void move_left() {\n" \
-"    if(current->left == ((void *)0))\n" \
-"        current->left = new_node(((void *)0), current);\n" \
+"void left() {\n" \
+"    if(!current->left) \n" \
+"        current->left = new_node(NULL, current);\n" \
 "    current = current->left;\n" \
 "}\n" \
-"\n" \
-"static inline void move_right() {\n" \
-"    if(current->right == ((void *)0))\n" \
-"        current->right = new_node(current, ((void *)0));\n" \
+"void right() {\n" \
+"    if(!current->right) \n" \
+"        current->right = new_node(current, NULL);\n" \
 "    current = current->right;\n" \
 "}\n" \
-"\n" \
-"static inline void output() {\n" \
-"    last_output = current->data;\n" \
-"    printf(\"%c\", last_output);\n" \
+"void out() { \n" \
+"    lastout = current->value;\n" \
+"    putchar(lastout);\n" \
+"}\n" \
+"void in() { \n" \
+"    if(lastout != '\\n') putchar('\\n');\n" \
+"    putchar(':');\n" \
+"    current->value = getchar();\n" \
+"    while(getchar() != '\\n');\n" \
 "}\n" \
 "\n" \
-"static inline void input() {\n" \
-"    printf(last_output == '\\n' ? \":\" : \"\\n:\");\n" \
-"    current->data = getchar();\n" \
-"    while(getchar() != '\\n');\n" \
+"void cleanup() {\n" \
+"    while(current->left)\n" \
+"        current = current->left;\n" \
+"    while(current->right) {\n" \
+"        struct node *tmp = current;\n" \
+"        current = current->right;\n" \
+"        free(tmp);\n" \
+"    }\n" \
+"    free(current);\n" \
+"\n" \
+"    if(lastout != '\\n') putchar('\\n');\n" \
 "}\n" \
 "\n" \
 "int main() {\n" \
 "    atexit(cleanup);\n" \
-"    current = new_node(((void *)0), ((void *)0));\n"
-#define COMPILE_MOVL "    move_left();\n"
-#define COMPILE_MOVR "    move_right();\n"
-#define COMPILE_INCR "    current->data++;\n"
-#define COMPILE_DECR "    current->data--;\n"
-#define COMPILE_OUTP "    output();\n"
-#define COMPILE_INPT "    input();\n"
-#define COMPILE_LOOP "    if(current->data != 0) do{\n"
-#define COMPILE_ENDL "    }while(current->data != 0);\n"
+"    current = new_node(NULL, NULL);\n"
+#define COMPILE_INCR(N)  "    current->value+=%d;\n", N
+#define COMPILE_DECR(N)  "    current->value-=%d;\n", N
+#define COMPILE_LEFT(N)  "    for(int i = 0; i < %d; i++) left();\n", N
+#define COMPILE_RITE(N)  "    for(int i = 0; i < %d; i++) right();\n", N
+#define COMPILE_LOOP     "    while(current->value) {\n"
+#define COMPILE_ENDL     "    }\n"
+#define COMPILE_OUT(N)   "    for(int i = 0; i < %d; i++) out();\n", N
+#define COMPILE_IN(N)    "    for(int i = 0; i < %d; i++) in();\n", N
+#define COMPILE_END      "}"
 
-// the last character written to the console
-char last_output = '\n';
+#define INTERMEDIATE_FILE "__BFINTERM__"
 
-// tape node
-struct node {
-    unsigned char data;
-    struct node *left;
-    struct node *right;
-} *current;
-
-// create a new node with the specified left and right nodes
-// returns a pointer to the new node or NULL if malloc fails
-struct node *new_node(struct node *left, struct node *right) {
-    struct node *new = malloc(sizeof(struct node));
-    if(new == NULL) {
-        printf("\nERROR: Failed to allocate tape memory.\n");
-        return NULL;
-    }
-    new->data = 0;
-    new->left = left;
-    new->right = right;
-    return new;
+// determines how many identical chars immediately follow the current program pointer
+// also increments the program pointer to the last char in the block
+int len_charblock() {
+    int len = 1;
+    while(program[program_ptr] == program[program_ptr + len])
+        len++;
+    program_ptr += len - 1;
+    return len;
 }
 
-// free up the tape resources and print a newline if necessary
-void cleanup() {
-    // go to the leftmost node
-    while(current->left != NULL)
-        current = current->left;
-    // free the tape
-    struct node *temp;
-    while(current != NULL) {
-        temp = current;
-        current = current->right;
-        free(temp);
-    }
-    
-    // print a newline if the last character written to the console was not a newline
-    if(last_output != '\n')
-        printf("\n");
-}
-
-// initialize the tapes first node
-void init_tape() {
-    atexit(cleanup);
-    current = new_node(NULL, NULL);
-    if(current == NULL)
-        exit(1);
-}
-
-// move current pointer one space to the left
-// if the left node does not exist, create it
-// returns 1 on success, 0 on failure
-int move_left() {
-    if(current->left == NULL) {
-        current->left = new_node(NULL, current);
-        if(current->left == NULL)
-            return 0;
-    }
-    current = current->left;
-    return 1;
-}
-
-// move current pointer one space to the right
-// if the right node does not exist, create it
-// returns 1 on success, 0 on failure
-int move_right() {
-    if(current->right == NULL) {
-        current->right = new_node(current, NULL);
-        if(current->right == NULL)
-            return 0;
-    }
-    current = current->right;
-    return 1;
-}
-
-// increment the current node by one
-void increment() { current->data++; }
-// decrement the current node by one
-void decrement() { current->data--; }
-
-// print the value of the current node
-void output() { 
-    last_output = current->data;
-    printf("%c", last_output);
-}
-// read a character from the console and store it in the current node
-void input() {
-    printf(last_output == '\n' ? ":" : "\n:");
-    current->data = getchar();
-    // discard any extra characters
-    while(getchar() != '\n');
-}
-
-// executes a brainfuck program
-// returns 1 on success, 0 on failure
-int execute(char *program) {
-    while(*program != '\0') {
-        switch(*program) {
-            case '>': if(!move_right()) return 0; break;
-            case '<': if(!move_left())  return 0; break;
-            case '+': increment(); break;
-            case '-': decrement(); break;
-            case '.': output(); break;
-            case ',': input(); break;
-            case '[': if(current->data == 0) {
-                          int depth = 1;
-                          while(depth > 0) {
-                              program++;
-                              if(*program == '[') depth++;
-                              else if(*program == ']') depth--;
-                          }
-                      }
-                      break;
-            case ']': if(current->data != 0) {
-                          int depth = 1;
-                          while(depth > 0) {
-                              program--;
-                              if(*program == '[') depth--;
-                              else if(*program == ']') depth++;
-                          }
-                      }
-                      break;
+void compile(char *executable_name) {
+    // transpile to C
+    FILE *f = fopen(INTERMEDIATE_FILE, "w");
+    errif(!f, "Build failed: Failed to create intermediate file");
+    fprintf(f, COMPILE_BASE);
+    for(program_ptr = 0; program_ptr < program_size; program_ptr++)
+        switch(program[program_ptr]) {
+            case '+': fprintf(f, COMPILE_INCR(len_charblock())); break;
+            case '-': fprintf(f, COMPILE_DECR(len_charblock())); break;
+            case '<': fprintf(f, COMPILE_LEFT(len_charblock())); break;
+            case '>': fprintf(f, COMPILE_RITE(len_charblock())); break;
+            case '[': fprintf(f, COMPILE_LOOP); break;
+            case ']': fprintf(f, COMPILE_ENDL); break;
+            case '.': fprintf(f, COMPILE_OUT(len_charblock())); break;
+            case ',': fprintf(f, COMPILE_IN(len_charblock())); break;
         }
-        program++;
-    }
-    return 1;
-}
+    fprintf(f, COMPILE_END);
+    fclose(f);
 
-char* prompt() {
-    if(last_output != '\n')
-        printf("\n");
-    printf("$ ");
-    char *input = malloc(256);
-    if(input == NULL) {
-        printf("\nERROR: Failed to allocate memory for input.\n");
-        exit(1);
-    }
-    fgets(input, 256, stdin);
-    return input;
-}
+    // compile to executable
+    char cmd[strlen("gcc -x c -O3 -o  ") + strlen(executable_name) + strlen(INTERMEDIATE_FILE)];
+    sprintf(cmd, "gcc -x c -O3 -o %s %s", executable_name, INTERMEDIATE_FILE);
+    system(cmd);
 
-// function for the interactive brainfuck shell
-// runs until the user enters "exit"
-void intercative() {
-    char *program;
-    while(1) {
-        program = prompt();
-        if(strcmp(program, "exit\n") == 0) {
-            free(program);
-            break;
-        }
-        if(!execute(program)) {
-            free(program);
-            exit(1);
-        }
-
-        if(last_output != '\n') {
-            printf("%c",'\n');
-            last_output = '\n';
-        }
-        free(program);
-    }
-}
-
-// if the argument is a file, return the contents of the file
-// otherwise, return the argument
-char* parseArg(char *arg, int *isnew) {
-    *isnew = 0;
-    FILE *file = fopen(arg, "r");
-    if(file == NULL)
-        return arg;
-    *isnew = 1;
-    fseek(file, 0, SEEK_END);
-    long size = ftell(file);
-    rewind(file);
-    char *program = malloc(size + 1);
-    if(program == NULL) {
-        printf("\nERROR: Failed to allocate memory for program.\n");
-        exit(1);
-    }
-    fread(program, 1, size, file);
-    program[size] = '\0';
-    fclose(file);
-    return program;
-}
-
-// -c or --compile must be the first argument 
-// if either is supplied, the next argument is the output executable
-// all other arguments are treated as input files if they exist or source code otherwise
-// Usage: brainfck [-c|--compile | -h|--help] [output] [input...]
-int main(int argc, char *argv[]) {
-    init_tape();
-
-    if(argc == 1) { // run brainfuck as an interactive shell
-        intercative();
-        exit(0);
-    }
-
-    if(strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
-        printf("Usage: brainfuck [-h|--help | -c|--compile] [output] [input...]\n");
-        printf("  -h, --help     Display this help message. (must be the first argument, all other arguments will be ignored)\n");
-        printf("  -c, --compile  Switch to compile mode instead of interpret mode. (must be the first argument)\n");
-        printf("  output         The name of the output executable. (only used in compile mode)\n");
-        printf("  input          The source code to be executed. Existing files will be read, otherwise the argument will be treated as source code.\n");
-        printf("If no arguments are supplied, brainfuck will run as an interactive shell.\n");
-        exit(0);
-    }
-    
-    // execute the program directly if neither -c nor --compile is supplied as the first argument
-    if(strcmp(argv[1], "-c") != 0 && strcmp(argv[1], "--compile") != 0) {
-        for(int i = 1; i < argc; i++) {
-            int isnew;
-            char *program = parseArg(argv[i],&isnew);
-            if(!execute(program)) {
-                if(isnew) free(program);
-                exit(1);
-            }
-            if(isnew) free(program);
-        }
-        exit(0);
-    }
-
-    // transpile the program to C and then compile the C code
-
-    // check for output file
-    if(argc < 3) {
-        printf("\nERROR: No output file specified.\n");
-        exit(1);
-    }
-
-    // transpile the program to file "__intermediate_c_2_brainfuck__.c"
-    FILE *file = fopen("__intermediate_c_2_brainfuck__.c", "w");
-    fputs(COMPILE_CODEBASE,file);
-    for(int i = 3; i < argc; i++) {
-        int isnew;
-        char *program = parseArg(argv[i],&isnew);
-        for(int i = 0; i < strlen(program); i++) {
-            switch(program[i]) {
-                case '>': fputs(COMPILE_MOVR, file); break;
-                case '<': fputs(COMPILE_MOVL, file); break;
-                case '+': fputs(COMPILE_INCR, file); break;
-                case '-': fputs(COMPILE_DECR, file); break;
-                case '.': fputs(COMPILE_OUTP, file); break;
-                case ',': fputs(COMPILE_INPT, file); break;
-                case '[': fputs(COMPILE_LOOP, file); break;
-                case ']': fputs(COMPILE_ENDL, file); break;
-            }
-        }
-        if(isnew) free(program);
-    }
-    fprintf(file, "}\n");
-    fclose(file);
-
-
-    // compile "__intermediate_c_2_brainfuck__.c" using gcc
-    char command[256];
-    snprintf(command, sizeof(command), "gcc -o %s __intermediate_c_2_brainfuck__.c", argv[2]);
-    system(command);
-
-    // delete "__intermediate_c_2_brainfuck__.c"
-    remove("__intermediate_c_2_brainfuck__.c");
+    remove(INTERMEDIATE_FILE);
 }
