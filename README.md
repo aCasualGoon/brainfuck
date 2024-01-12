@@ -19,21 +19,22 @@ The Brainfuck "standard" does not make any further specifications so this interp
 - The tape is infinite in both directions. This is realized by dynamically allocating memory for the tape. The program won't stop you from allocating infinite memory, it will just keep going until you run out of memory or the operating system kills the process.
 - Cell values will overflow from 255 to 0 and underflow from 0 to 255.
 - A failure to allocate memory for the tape, input, or the program code will result in program termination.
-- The only syntax error possible is an unmatched `[` or `]`. This will result in program termination.
+<!-- - The only syntax error possible is an unmatched `[` or `]`. This will result in program termination. -->
 
 ## Compilation and Installation
-- To compile the interpreter, run:
+- To just compile run:
   ```
   make
   ```
-- To install the interpreter (Linux systems only):
+- To install (Linux systems only) run:
   ```
   sudo make install
   ```
-- To uninstall:
+- To uninstall run:
   ```
   sudo make uninstall
   ```
+Compilation and installation require make and gcc to be available in the command line. Alternatively compile brainfuck.c with your c compiler of choice.
 
 ## Usage
 To show the help page run:
@@ -51,7 +52,7 @@ The interpreter can be called from the command line using:
 ```
 brainfuck <input...>
 ```
-Where `<input...>` is a non-empty list of Brainfuck source code that will be concatenated together and interpreted. An element of `<input...>` may be Brainfuck source code directly (mind that some characters may be special to the shell) or a file path to a Brainfuck source code file.
+Where `<input...>` is a non-empty list of Brainfuck source code that will be concatenated together and interpreted. An element of `<input...>` may be Brainfuck source code directly or a file path to a Brainfuck source code file.
 
 #### Compiler
 The compiler can be called from the command line using:
@@ -65,6 +66,9 @@ brainfuck --compile <output> <input...>
 ```
 
 Where `<output>` is the *required* output executable. `<input...>` works just like when interpreted.
+-c or --compile may be any argument as long as they are being succeeded by a valid file name for the output executable.
+
+The compiler requires gcc to be available in the command line.
 
 #### Interactive shell
 The interactive shell will be launched if no arguments are provided:
@@ -73,9 +77,8 @@ brainfuck
 ```
 The interactive shell supports the following additional commands:
 - `exit` exit the shell
-- `set <value>` set the value of the cell at the pointer directly *(coming "soon")*
-- `reset` reset the tape *(coming "soon")*
-- `help` print this list of commands (+ the normal Brainfuck commands) *(coming "soon")*
+<!-- - `reset` reset the tape -->
+<!-- - `help` print this list of commands (+ the normal Brainfuck commands) -->
 
 ## License
 This project is licensed under the Mozilla Public License 2.0 - see the [LICENSE.md](LICENSE.md) file for details.
