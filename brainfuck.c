@@ -168,6 +168,20 @@ void shell() { // we're not filtering for commands here
 
         // parse special commands
         if(streq(program, "exit\n")) exit(0);
+        if(streq(program, "help\n")) {
+            printf("Commands:\n");
+            printf("  +    - increment the current cell\n");
+            printf("  -    - decrement the current cell\n");
+            printf("  <    - move the pointer left\n");
+            printf("  >    - move the pointer right\n");
+            printf("  [    - start a loop while current cell != 0\n");
+            printf("  ]    - end a loop\n");
+            printf("  .    - output the current cell\n");
+            printf("  ,    - input a value into the current cell\n");
+            printf("  exit - exit the shell\n");
+            printf("  help - display this help message\n");
+            continue;
+        }
 
         // set program size and pointer
         program_size = strlen(program);
@@ -229,6 +243,17 @@ int main(int argc, char *argv[]) {
         if(streq(arg, "--version")) {
             printf("version %s\n", VERSION);
             blank(arg);
+            continue;
+        }
+
+        if(streq2(arg, "-h", "--help")) {
+            printf("Usage: brainfuck [options] [program]\n");
+            printf("Options:\n");
+            printf("  -h,        --help           - display this help message\n");
+            printf("             --version        - display the version number\n");
+            printf("  -c <file>, --compile <file> - compile the program to the specified an executable\n");
+            printf("\n");
+            printf("If no program is specified, an interactive shell will be started.\n");
         }
 
         if(streq2(arg, "-c", "--compile")) {
@@ -238,6 +263,7 @@ int main(int argc, char *argv[]) {
             if(!isvalidfilename(argv[compile_exeidx]))
                 errorf("Invalid executable name: \"%s\"", argv[compile_exeidx]);
             blank(arg);
+            continue;
         }
     }
 

@@ -78,7 +78,7 @@ brainfuck
 The interactive shell supports the following additional commands:
 - `exit` exit the shell
 <!-- - `reset` reset the tape -->
-<!-- - `help` print this list of commands (+ the normal Brainfuck commands) -->
+- `help` print this list of commands (+ the normal Brainfuck commands)
 
 ## License
 This project is licensed under the Mozilla Public License 2.0 - see the [LICENSE.md](LICENSE.md) file for details.
