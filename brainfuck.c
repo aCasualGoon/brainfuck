@@ -92,6 +92,17 @@ node* new_node(node *left, node *right) {
 
 node *current;
 
+void free_tape() {
+    while(current->left)
+        current = current->left;
+    while(current->right) {
+        node *tmp = current;
+        current = current->right;
+        free(tmp);
+    }
+    free(current);
+}
+
 /* ------------------ COMMANDS ------------------ */
 
 void command_increment() { current->value++; }
@@ -168,18 +179,25 @@ void shell() { // we're not filtering for commands here
 
         // parse special commands
         if(streq(program, "exit\n")) exit(0);
+        if(streq(program, "clear\n")) {
+            free_tape();
+            current = new_node(NULL, NULL);
+            continue;
+        }
         if(streq(program, "help\n")) {
             printf("Commands:\n");
-            printf("  +    - increment the current cell\n");
-            printf("  -    - decrement the current cell\n");
-            printf("  <    - move the pointer left\n");
-            printf("  >    - move the pointer right\n");
-            printf("  [    - start a loop while current cell != 0\n");
-            printf("  ]    - end a loop\n");
-            printf("  .    - output the current cell\n");
-            printf("  ,    - input a value into the current cell\n");
-            printf("  exit - exit the shell\n");
-            printf("  help - display this help message\n");
+            printf("  +     - increment the current cell\n");
+            printf("  -     - decrement the current cell\n");
+            printf("  <     - move the pointer left\n");
+            printf("  >     - move the pointer right\n");
+            printf("  [     - start a loop while current cell != 0\n");
+            printf("  ]     - end a loop\n");
+            printf("  .     - output the current cell\n");
+            printf("  ,     - input a value into the current cell\n");
+            printf("\nShell commands:  (must be passed as standalone lines)\n");
+            printf("  exit  - exit the shell\n");
+            printf("  clear - clear the tape\n");
+            printf("  help  - display this help message\n");
             continue;
         }
 
@@ -204,16 +222,7 @@ void blank(char *str) {
 
 void cleanup() {
     if(program) free(program);
-    
-    while(current->left)
-        current = current->left;
-    while(current->right) {
-        node *tmp = current;
-        current = current->right;
-        free(tmp);
-    }
-    free(current);
-
+    free_tape();
     if(lastout != '\n') putchar('\n');
 }
 

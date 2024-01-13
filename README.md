@@ -34,7 +34,7 @@ The Brainfuck "standard" does not make any further specifications so this interp
   ```
   sudo make uninstall
   ```
-Compilation and installation require make and gcc to be available in the command line. Alternatively compile brainfuck.c with your c compiler of choice.
+Compilation and installation require make and gcc to be available in the command line. Alternatively compile brainfuck.c with your C compiler of choice.
 
 ## Usage
 To show the help page run:
@@ -77,8 +77,12 @@ brainfuck
 ```
 The interactive shell supports the following additional commands:
 - `exit` exit the shell
-<!-- - `reset` reset the tape -->
+- `clear` clear the tape
 - `help` print this list of commands (+ the normal Brainfuck commands)
+The input must exactly match one of these:
+✅ "exit"       ❌ " exit"
+                    "exit "
+                    "++>exit"
 
 ## License
 This project is licensed under the Mozilla Public License 2.0 - see the [LICENSE.md](LICENSE.md) file for details.
