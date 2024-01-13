@@ -41,8 +41,7 @@ To show the help page run:
 ```
 brainfuck -h
 ```
-<div style="margin-top: -22.5px; margin-bottom: -5px; margin-left: 10px">or</div>
-
+or <br>
 ```
 brainfuck --help
 ```
@@ -59,8 +58,7 @@ The compiler can be called from the command line using:
 ```
 brainfuck -c <output> <input...>
 ```
-<div style="margin-top: -22.5px; margin-bottom: -5px; margin-left: 10px">or</div>
-
+or <br>
 ```
 brainfuck --compile <output> <input...>
 ```
@@ -79,10 +77,10 @@ The interactive shell supports the following additional commands:
 - `exit` exit the shell
 - `clear` clear the tape
 - `help` print this list of commands (+ the normal Brainfuck commands)
-The input must exactly match one of these:
-✅ "exit"       ❌ " exit"
-                    "exit "
-                    "++>exit"
+
+The input must match a command exactly:<br>
+✅ "exit"<br>
+❌ " exit", "exit ", "<+exit."
 
 ## License
 This project is licensed under the Mozilla Public License 2.0 - see the [LICENSE.md](LICENSE.md) file for details.
