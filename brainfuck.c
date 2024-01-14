@@ -43,7 +43,7 @@ unsigned long program_size;
 unsigned long program_ptr = 0;
 
 void append2program(char *expression) {
-    FILE *f = fopen(expression, "r");
+    FILE *f = streq2(expression, ".", "..") ? NULL : fopen(expression, "r");
 
     int predicted_size = 0;
     if(f) {
